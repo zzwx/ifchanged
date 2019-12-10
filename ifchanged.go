@@ -49,6 +49,8 @@ func SaveSHA256(sha256 string, fileName string) error {
 	return nil
 }
 
+// ExecuteCommand is a helper function to run `exe` file with the `arg`s and
+// in case of error, returns a fully formatted error containing both `stderr` and `stdout`
 func ExecuteCommand(exe string, arg ...string) error {
 	cmd := exec.Command(exe, arg...)
 	var stdout bytes.Buffer
@@ -111,29 +113,62 @@ func IfChangedUsingBitcask(fileName string, db *bitcask.Bitcask, sha256key []byt
 // If `executeIfChanged` returns error, we don't update sha256.
 // The function is not retuning error of executeIfChanged() if happened.
 func IfChangedUsingFile(fileName string, sha256file string, executeIfChanged func() error) error {
+	return ifChangedUsingFile(fileName, sha256file, "", executeIfChanged)
+}
+
+// IfChangedOrFileMissingUsingFile additionally executes executeIfChanged
+// when particular file is missing. Useful when `executeIfChanged` generates that
+// exact file and it serves as a sign that operation is necessary to perform
+func IfChangedOrFileMissingUsingFile(fileName string, sha256file string, checkMissingFileName string, executeIfChanged func() error) error {
+	return ifChangedUsingFile(fileName, sha256file, checkMissingFileName, executeIfChanged)
+}
+
+// IfChangedUsingFile based on a file that contains sha256 checksum.
+// Runs `executeIfChanged` if checksum has changed.
+// If `executeIfChanged` returns error, we don't update sha256.
+// The function is not retuning error of executeIfChanged() if happened.
+func ifChangedUsingFile(fileName string, sha256file string, checkMissingFileName string, executeIfChanged func() error) error {
 	fileInfo, err := os.Stat(fileName)
-	if os.IsNotExist(err) {
-		return fmt.Errorf("file not found: %s due to: %w", fileName, err)
-	}
-	if fileInfo.IsDir() {
-		return fmt.Errorf("file is a folder: %s due to: %w", fileName, err)
-	}
-	savedSha256 := ""
-	sha256FileInfo, err := os.Stat(sha256file)
-	if err == nil && sha256FileInfo.IsDir() {
-		return fmt.Errorf("sha256 is a folder: %w", err)
-	}
-	if !os.IsNotExist(err) && !sha256FileInfo.IsDir() {
-		savedSha256, err = ReadFileAsString(sha256file)
-		if err != nil {
-			return fmt.Errorf("error reading existing sha256 file: %w", err)
+	if err != nil {
+	  if os.IsNotExist(err) {
+		  return fmt.Errorf("file not found: %s due to: %w", fileName, err)
+	  } else {
+			return fmt.Errorf("file opening error: %s due to: %w", fileName, err)
 		}
+	} else if fileInfo.IsDir() {
+		return fmt.Errorf("file is a folder: %s due to: %w", fileName, err)
 	}
 	newSha256, err := GetFileSHA256(fileName)
 	if err != nil {
 		return fmt.Errorf("sha256 not found: %w", err)
 	}
-	if savedSha256 == "" || savedSha256 != newSha256 {
+	forceGenerate := false
+	if checkMissingFileName != "" {
+		checkMissingFileInfo, err := os.Stat(checkMissingFileName)
+		if err != nil {
+			if os.IsNotExist(err) {
+				forceGenerate = true
+			} else {
+				return fmt.Errorf("file opening error: %s due to: %w", checkMissingFileInfo, err)
+			}
+		} else if checkMissingFileInfo.IsDir() {
+			return fmt.Errorf("checkMissingFileName is a folder: %s due to: %w", checkMissingFileName, err)
+		}
+	}
+	savedSha256 := ""
+	if !forceGenerate { // No need to read old sha256 if we have to overwrite it anyway
+		sha256FileInfo, err := os.Stat(sha256file)
+		if err == nil && sha256FileInfo.IsDir() {
+			return fmt.Errorf("sha256 is a folder: %w", err)
+		}
+		if !os.IsNotExist(err) && !sha256FileInfo.IsDir() {
+			savedSha256, err = ReadFileAsString(sha256file)
+			if err != nil {
+				return fmt.Errorf("error reading existing sha256 file: %w", err)
+			}
+		}
+	}
+	if forceGenerate || savedSha256 == "" || savedSha256 != newSha256 {
 		if err := executeIfChanged(); err == nil { // We only want to update the key if execution happened without error
 			err = SaveSHA256(newSha256, sha256file)
 			if err != nil {
@@ -143,3 +178,4 @@ func IfChangedUsingFile(fileName string, sha256file string, executeIfChanged fun
 	}
 	return nil
 }
+
