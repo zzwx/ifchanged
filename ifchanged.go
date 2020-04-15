@@ -1,75 +1,23 @@
 package ifchanged
 
 import (
-	"bufio"
-	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"os/exec"
-
-	"github.com/prologic/bitcask"
 )
 
-func GetFileSHA256(fileName string) (string, error) {
-	hasher := sha256.New()
-	s, err := ioutil.ReadFile(fileName)
-	hasher.Write(s)
-	if err != nil {
-		return "", fmt.Errorf("error finding sha256: %w", err)
-	}
-	return hex.EncodeToString(hasher.Sum(nil)), nil
+type DB interface {
+	Put(key, value []byte) error
+	Has(key []byte) bool
+	Get(key []byte) ([]byte, error)
+	Sync() error
+	Close() error
 }
 
-func ReadFileAsString(fileName string) (string, error) {
-	s, err := ioutil.ReadFile(fileName)
-	if err != nil {
-		return "", fmt.Errorf("error reading file: %w", err)
-	}
-	return string(s), nil
-}
-
-func SaveSHA256(sha256 string, fileName string) error {
-	file, err := os.Create(fileName)
-	if err != nil {
-		return fmt.Errorf("create sha256 error: %w", err)
-	}
-	defer file.Close()
-	w := bufio.NewWriter(file)
-	_, err = fmt.Fprintf(w, `%s`, sha256)
-	if err != nil {
-		return fmt.Errorf("save sha256 error: %w", err)
-	}
-	err = w.Flush()
-	if err != nil {
-		return fmt.Errorf("save sha256 error: %w", err)
-	}
-	return nil
-}
-
-// ExecuteCommand is a helper function to run `exe` file with the `arg`s and
-// in case of error, returns a fully formatted error containing both `stderr` and `stdout`
-func ExecuteCommand(exe string, arg ...string) error {
-	cmd := exec.Command(exe, arg...)
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run() // Block the thread until it finishes
-	if err != nil {
-		return fmt.Errorf("execute command error: stderr: \"%s\", stdout: \"%s\" due to %w", stderr.String(), stdout.String(), err)
-	}
-	return nil
-	// cmd.Wait() // Wait is only needed if we cmd.Start()
-}
-
-// IfChangedUsingBitcask based on a key/value containing sha256 checksum in bitcask database.
+// UsingDB based on a key/value containing sha256 checksum in DB database.
 // Runs `executeIfChanged` if checksum has changed.
 // If `executeIfChanged` returns error, we don't update sha256.
 // The function is not retuning error of executeIfChanged() if happened.
-func IfChangedUsingBitcask(fileName string, db *bitcask.Bitcask, sha256key []byte, executeIfChanged func() error) error {
+func UsingDB(fileName string, db DB, sha256key []byte, executeIfChanged func() error) error {
 	fileInfo, err := os.Stat(fileName)
 	if os.IsNotExist(err) {
 		return fmt.Errorf("file not found: %s due to: %w", fileName, err)
@@ -81,7 +29,7 @@ func IfChangedUsingBitcask(fileName string, db *bitcask.Bitcask, sha256key []byt
 	if db.Has(sha256key) {
 		val, err := db.Get(sha256key)
 		if err != nil {
-			return fmt.Errorf("bitcask error: %w", err)
+			return fmt.Errorf("DB error: %w", err)
 		}
 		if val == nil {
 		} else {
@@ -112,27 +60,27 @@ func IfChangedUsingBitcask(fileName string, db *bitcask.Bitcask, sha256key []byt
 // Runs `executeIfChanged` if checksum has changed.
 // If `executeIfChanged` returns error, we don't update sha256.
 // The function is not retuning error of executeIfChanged() if happened.
-func IfChangedUsingFile(fileName string, sha256file string, executeIfChanged func() error) error {
-	return ifChangedUsingFile(fileName, sha256file, "", executeIfChanged)
+func UsingFile(fileName string, sha256file string, executeIfChanged func() error) error {
+	return _ifChangedUsingFile(fileName, sha256file, "", executeIfChanged)
 }
 
 // IfChangedOrFileMissingUsingFile additionally executes executeIfChanged
 // when particular file is missing. Useful when `executeIfChanged` generates that
 // exact file and it serves as a sign that operation is necessary to perform
-func IfChangedOrFileMissingUsingFile(fileName string, sha256file string, checkMissingFileName string, executeIfChanged func() error) error {
-	return ifChangedUsingFile(fileName, sha256file, checkMissingFileName, executeIfChanged)
+func UsingFileOrMissing(fileName string, sha256file string, checkMissingFileName string, executeIfChanged func() error) error {
+	return _ifChangedUsingFile(fileName, sha256file, checkMissingFileName, executeIfChanged)
 }
 
-// IfChangedUsingFile based on a file that contains sha256 checksum.
+// _ifChangedUsingFile based on a file that contains sha256 checksum.
 // Runs `executeIfChanged` if checksum has changed.
 // If `executeIfChanged` returns error, we don't update sha256.
 // The function is not retuning error of executeIfChanged() if happened.
-func ifChangedUsingFile(fileName string, sha256file string, checkMissingFileName string, executeIfChanged func() error) error {
+func _ifChangedUsingFile(fileName string, sha256file string, checkMissingFileName string, executeIfChanged func() error) error {
 	fileInfo, err := os.Stat(fileName)
 	if err != nil {
-	  if os.IsNotExist(err) {
-		  return fmt.Errorf("file not found: %s due to: %w", fileName, err)
-	  } else {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("file not found: %s due to: %w", fileName, err)
+		} else {
 			return fmt.Errorf("file opening error: %s due to: %w", fileName, err)
 		}
 	} else if fileInfo.IsDir() {
@@ -178,4 +126,3 @@ func ifChangedUsingFile(fileName string, sha256file string, checkMissingFileName
 	}
 	return nil
 }
-

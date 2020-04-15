@@ -11,7 +11,7 @@ func TestIfChangedOrFileMissingUsingFile(t *testing.T) {
 	}
 
 	visited := false
-	if err := IfChangedOrFileMissingUsingFile("./examples/example1.go",
+	if err := UsingFileOrMissing("./examples/example1.go",
 		"./examples/example1.go.sha256",
 		"./examples/example1.generated",
 		func() error {
