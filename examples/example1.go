@@ -23,5 +23,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("%+v", err)
 	}
+	err = ifchanged.NewIf().
+		Changed(fileName, fileName+".sha256").
+		Missing("somefile.txt").
+		Execute(func() error {
+			fmt.Printf("This has been called because \"somefile.txt\" is missing or %v has changed\n", fileName)
+			return nil
+		})
 
 }
