@@ -1,4 +1,6 @@
-# ifchanged
+[![github.com/zzwx/ifchanged](./doc/gobadge.svg)](https://pkg.go.dev/github.com/zzwx/ifchanged)
+
+# Ifchanged
 
 Package `ifchanged` is a collection of Go functions to perform callbacks in case of file changes (using sha256 hash)
 and / or missing files.
