@@ -62,4 +62,3 @@ func ExecuteCommand(exe string, arg ...string) error {
 	return nil
 	// cmd.Wait() // Wait is only needed if we cmd.Start()
 }
-
