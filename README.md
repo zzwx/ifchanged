@@ -32,4 +32,4 @@ err = ifchanged.NewIf().
 `ifchanged`, additionally, has a way to provide checksums using a `DB` interface.
 
 * `linetuple.go` contains a simple file-based implementation of `DB` (not really optimised yet)
-* [github.com/prologic/bitcask](github.com/prologic/bitcask) implements it.
+* [git.mills.io/prologic/bitcask](git.mills.io/prologic/bitcask) implements it.
