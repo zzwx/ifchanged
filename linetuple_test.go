@@ -4,6 +4,7 @@ import "fmt"
 
 func ExampleNewLineTuple() {
 	tuple, err := NewLineTuple("./linetuple_test.txt")
+	defer tuple.Close()
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		return
@@ -13,6 +14,5 @@ func ExampleNewLineTuple() {
 	tuple.Put([]byte("testKey3"), []byte("TESTValue3"))
 	get, _ := tuple.Get([]byte("testKey"))
 	fmt.Printf("%s", get)
-	tuple.Close()
 	// Output: TESTValue
 }

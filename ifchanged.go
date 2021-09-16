@@ -5,29 +5,20 @@ import (
 	"os"
 )
 
-type DB interface {
-	Put(key, value []byte) error
-	Has(key []byte) bool
-	Get(key []byte) ([]byte, error)
-	Sync() error
-	Close() error
-}
-
-// If is designed for human-readable chaining of "ifs" of changed or missing files cases in which Execute should be called.
-// If can be either initialized with NewIf() or as (&ifchanged.If{}) for immediate chaining.
+// If is designed for a human-readable chaining of "ifs" followed by specification of If.Changed and/or If.Missing cases
+// in which the If.Execute should be called. NewIf() initializes If struct for immediate chaining.
 type If struct {
 	pairs   []FileSHA256Pair
 	missing []string
 }
 
-// NewIf initializes new If structure. It is easier to read when used in chaining.
-// If can be used as-is, but it has to be wrapped into (&ifchanged.If{}) in order to become immediately chainable.
+// NewIf initializes a new *If struct, although it can be used as a zero-value.
 func NewIf() *If {
 	return &If{}
 }
 
 // Changed appends a fileName / sha256 file rule to If structure to check against for modified files,
-// in which case a function provided with Execute will be called
+// in which case a function provided with Execute will be called. Several can be chained if needed.
 func (i *If) Changed(fileName, sha256file string) *If {
 	i.pairs = append(i.pairs, FileSHA256Pair{
 		FileName:   fileName,
@@ -105,7 +96,7 @@ func UsingFile(fileName string, sha256file string, executeIfChanged func() error
 	}}, nil, executeIfChanged)
 }
 
-// Deprecated: Use UsingFiles or If struct, that work for both a list of modified and a list of possibly missing files.
+// Deprecated: Use NewIf followed by If.Changed and If.Missing, that works for both a list of modified and a list of possibly missing files.
 //
 // UsingFileOrMissing acts as UsingFile, but additionally executes executeIfChanged
 // when a file checkMissingFileName is missing. This assumes that executeIfChanged generates the
@@ -117,9 +108,10 @@ func UsingFileOrMissing(fileName string, sha256file string, checkMissingFileName
 	}}, []string{checkMissingFileName}, execute)
 }
 
-// UsingFilesOrMissingFiles acts as UsingFile, but additionally executes executeIfChanged
-// when any of the files listed with checkMissingFileName is missing. This assumes that executeIfChanged generates the
-// file(s), so it serves as a sign that operation is necessary to perform. UsingFileOrMissing does that for a just one file (kept for backward compatibility).
+// UsingFiles executes executeIfChanged
+// when any of the files listed with checkMissingFiles is missing. executeIfChanged generates the
+// file(s), so it serves as a sign that operation is necessary to perform.
+// UsingFileOrMissing does that for a just one file (kept for backward compatibility).
 func UsingFiles(fileSHA256Pairs []FileSHA256Pair, checkMissingFiles []string, execute func() error) error {
 	return usingFilesOrMissing(fileSHA256Pairs, checkMissingFiles, execute)
 }
