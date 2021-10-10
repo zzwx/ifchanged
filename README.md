@@ -1,4 +1,4 @@
-[![github.com/zzwx/ifchanged](./doc/gobadge.svg)](https://pkg.go.dev/github.com/zzwx/ifchanged)
+[![https://github.com/zzwx/ifchanged](./doc/gobadge.svg)](https://pkg.go.dev/github.com/zzwx/ifchanged)
 
 # Ifchanged
 
